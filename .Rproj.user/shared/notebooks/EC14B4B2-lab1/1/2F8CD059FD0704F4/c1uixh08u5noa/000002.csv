@@ -1,0 +1,2 @@
+"0","data = read_excel(""machines.xlsx"")"
+"0","lifetimes = data[[1]]"

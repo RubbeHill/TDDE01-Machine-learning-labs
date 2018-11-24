@@ -1,0 +1,2 @@
+"0","data = read_excel(""tecator.xlsx"")"
+"0","plot(data$Moisture, data$Protein)"

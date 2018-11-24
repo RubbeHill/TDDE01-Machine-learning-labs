@@ -1,0 +1,8 @@
+"0","set.seed(12345)"
+"0","rdata = rexp(50, theta_hat1)"
+"0","hist(lifetimes,"
+"0","     main = ""Histogram of given lifetime data"","
+"0","     xlab = ""Lifetime"","
+"0","     xlim = c(0, 6),"
+"0","     ylim = c(0, 25),"
+"0","     breaks = 10)"

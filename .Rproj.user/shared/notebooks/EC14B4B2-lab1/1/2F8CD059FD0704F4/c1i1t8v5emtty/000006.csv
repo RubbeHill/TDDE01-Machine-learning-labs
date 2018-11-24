@@ -1,0 +1,3 @@
+"0","theta_hat1 = x[which.max(y1)]"
+"0","theta_hat2 = x[which.max(y2)]"
+"0","abline(v=theta_hat1, col=""blue"")"
