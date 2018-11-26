@@ -13,7 +13,7 @@ library(readxl)
 
 # Assignment 1. Spam classification with nearest neighbors
 
-This assignment is about classifying mails as spam or not spam. A data file containing 2470 e-mails manually classified as spam or regular e-mail was given. This file also contained information about the frequencies of different words in the e-mails. 
+This assignment is about classifying mails as spam or not spam. A data file containing 2470 e-mails manually classified as spam or regular e-mail was given. The file also contained information about the frequencies of different words in the e-mails. 
 
 ## 1.1 Setup
 The data was imported and randomly split into two equally distributed data sets, one for training and one for testing. 
@@ -21,7 +21,7 @@ The data was imported and randomly split into two equally distributed data sets,
 ```{r 1_1, echo=FALSE}
 data = read_excel("spambase.xlsx")
 
-# Devide the data equally into two datasets, one for training and one for testing
+# Divide the data equally into two data sets, one for training and one for testing
 n=dim(data)[1]
 set.seed(12345)
 id=sample(1:n, floor(n*0.5))
@@ -36,6 +36,7 @@ A model was fitted to the test set using logistic regression (the glm() funciton
 
 The resulting confusion matrix and the missclassification rate when using this model on the **training** set can be seen below:
 
+### Confusion matrix for training data
 ```{r 1_2_train, echo=FALSE, warning=FALSE}
 # Get a model using logistic regression on the train dataset
 fit = glm(formula = Spam ~ ., family = binomial(), data = train)
@@ -80,13 +81,13 @@ with(train, table(predicted_spam_test_2, Spam, dnn = c("Prediction", "Truth")))
 sprintf("Missclassification rate: %f", mean(predicted_spam_test_2 != test$Spam))
 ```
 
-The results clearly show that this model isn't very reliable. Almost all e-mails were predicted to be not spam. Only a total of 7 e-mails in each data set are predicted as spam with a probability > 90%, and 6 of those are false-positives on the testing set. From this we can gather that the logistic regression model works ok, but predicts e-mails as spam with high uncertainty. 
+The results clearly show that this model isn't very reliable. Almost all e-mails were predicted to be not spam. Only a total of 7 e-mails in each data set are predicted as spam with a probability > 90%, and for the test set, 6 out of those 7 are false-positives. From this we can gather that the logistic regression model works ok when using a lower classifying principle, but is never really reliable because most predictions are lower than 0.9, and those that are over 0.9 are mostly wrong on the test data set. 
 
 ## 1.4 K-nearest-neighbors (K=30)
 To see if a better model for classifying the spam e-mails could be found, the knn algorithm was used with K = 3. An e-mail was classified as spam the same way as in 1.2 (> 0.5). The results on the **training** set can be seen below:
 
 ```{r 1_4_train, echo=FALSE}
-fit_train_knn = kknn::kknn(formula = Spam ~ ., train, train, k = 30)
+fit_train_knn = kknn::kknn(formula = Spam ~ ., train = train, test = train, k = 30)
 predicted_spam_train_knn = ifelse(fit_train_knn$fitted.values > 0.5, 1, 0)
 with(train, table(predicted_spam_train_knn, Spam, dnn = c("Predicted", "Truth")))
 sprintf("Missclassification rate: %f", mean(predicted_spam_train_knn != train$Spam))
@@ -95,7 +96,7 @@ sprintf("Missclassification rate: %f", mean(predicted_spam_train_knn != train$Sp
 And the results when using this model on the **test** data set:
 
 ```{r 1_4_test, echo=FALSE}
-fit_test_knn = kknn::kknn(formula = Spam ~ ., train, test, k = 30)
+fit_test_knn = kknn::kknn(formula = Spam ~ ., train = train, test = test, k = 30)
 predicted_spam_test_knn = ifelse(fit_test_knn$fitted.values > 0.5, 1, 0)
 with(test, table(predicted_spam_test_knn, Spam, dnn = c("Predicted", "Truth")))
 sprintf("Missclassification rate: %f", mean(predicted_spam_test_knn != test$Spam))
@@ -106,7 +107,7 @@ sprintf("Missclassification rate: %f", mean(predicted_spam_test_knn != test$Spam
 Lastly I tried knn with K=1.
 
 ```{r 1_5_train, echo=FALSE}
-fit_train_knn_2 = kknn::kknn(formula = Spam ~ ., train, train, k = 1)
+fit_train_knn_2 = kknn::kknn(formula = Spam ~ ., train = train, test = train, k = 1)
 predicted_spam_train_knn_2 = ifelse(fit_train_knn_2$fitted.values > 0.5, 1, 0)
 with(train, table(predicted_spam_train_knn_2, Spam, dnn = c("Predicted", "Truth")))
 sprintf("Missclassification rate: %f", mean(predicted_spam_train_knn_2 != train$Spam))
@@ -115,7 +116,7 @@ sprintf("Missclassification rate: %f", mean(predicted_spam_train_knn_2 != train$
 And the results when using this model on the **test** data set:
 
 ```{r 1_5_test, echo=FALSE}
-fit_test_knn_2 = kknn::kknn(formula = Spam ~ ., train, test, k = 1)
+fit_test_knn_2 = kknn::kknn(formula = Spam ~ ., train = train, test = test, k = 1)
 predicted_spam_test_knn_2 = ifelse(fit_test_knn_2$fitted.values > 0.5, 1, 0)
 with(test, table(predicted_spam_test_knn_2, Spam, dnn = c("Predicted", "Truth")))
 sprintf("Missclassification rate: %f", mean(predicted_spam_test_knn_2 != test$Spam))
@@ -123,14 +124,14 @@ sprintf("Missclassification rate: %f", mean(predicted_spam_test_knn_2 != test$Sp
 
 
 # Assignment 2
-```{r assignment_2_setup}
+```{r 2_1, echo=FALSE}
 data = read_excel("machines.xlsx")
 lifetimes = data[[1]]
 ```
 
 We assume that the probability model for the data is $p(x|\theta) = \theta e^{(-\theta x)}$ for **X**=*Length*. The observations are independent and identically distributed (iid). Since the data is the time until an event happens, the data is exponentially distributed (which can also be seen on the model we assumed). 
 
-```{r assignment_2_2}
+```{r 2_2, echo=FALSE}
 log_likelihood = function(theta, x) {
   n = length(x)
   n*log(theta) - theta*sum(x)
@@ -155,7 +156,7 @@ abline(v=theta_hat2, col="red")
 
 The first estimated theta is probably more reliablie, since it's based on 48 data values and theta_hat2 is only based on 6 values.
 
-```{r assignment_2_4}
+```{r 2_4, echo=FALSE}
 bayesian_log_likelihood = function(theta, x) {
   n = length(x)
   lambda = 10
@@ -173,7 +174,7 @@ abline(v=theta_hat3, col="red")
 ```
 
 
-```{r assignment_2_5}
+```{r 2_5, echo=FALSE}
 set.seed(12345)
 rdata = rexp(50, theta_hat1)
 hist(lifetimes,
@@ -192,14 +193,88 @@ hist(rdata,
 
 
 # Assignment 4
-```{r assignment_4_1}
+```{r 4_1, echo=FALSE}
+library(glmnet)
+
 data = read_excel("tecator.xlsx")
+
+# Divide the data equally into two data sets, one for training and one for testing
+n=dim(data)[1]
+set.seed(12345)
+id=sample(1:n, floor(n*0.5))
+train=data[id,]
+test=data[-id,]
 
 plot(data$Moisture, data$Protein)
 ```
 
 Yes this data looks like they are described good with a linear model.
 
-```{r assignment_4_2}
+## 4.2
+$\sum_{i=0}^{n} k_{i} * x^{i}$
 
+```{r 4_3, echo=FALSE, warning=FALSE}
+train_dfr = data.frame(x = train$Moisture, y = train$Protein)
+test_dfr = data.frame(x = test$Moisture, y = test$Protein)
+
+# Sort dataframe on x (needed for nice plot)
+train_dfr = train_dfr[with(train_dfr, order(x)),]
+test_dfr = test_dfr[with(test_dfr, order(x)),]
+
+# MSE vectors
+train_mses = c()
+test_mses = c()
+
+for(i in 1:6) {
+  fit = lm(formula = train_dfr[,2] ~ poly(train_dfr[,1], i))
+  y_hat_train = predict(fit, train_dfr)
+  y_hat_test = predict(fit, test_dfr)
+  
+  mse_train = sum((train_dfr[,2] - y_hat_train)^2)/length(y_hat_train)
+  train_mses = c(train_mses, mse_train)
+  mse_test = sum((test_dfr[,2] - y_hat_test)^2)/length(y_hat_test)
+  test_mses = c(test_mses, mse_test)
+}
+
+plot(seq(1:6), train_mses, type = 'l', ylim = c(3, 4.2), col="blue")
+lines(seq(1:6), test_mses, col="red")
+```
+
+```{r 4_4, echo=FALSE}
+require(MASS)
+
+model = lm(data$Fat ~ .-Sample-Protein-Moisture, data)
+step = stepAIC(model);
+```
+
+
+## 4.5 Ridge regression
+```{r 4_5, echo=FALSE}
+#model = lm.ridge(data$Fat ~ .-Sample-Protein-Moisture, data, lambda = seq(0.1, 400, 0.1))
+#matplot(log(model$lambda), t(model$coef) ,type = 'l')
+
+x = model.matrix(data$Fat ~ .-Sample -Protein -Moisture, data)
+covariates = scale(data[,2:101])
+response = scale(data$Fat)
+
+# alpha = 0 gives ridge regression
+model = glmnet(as.matrix(covariates), response, alpha = 0, family = "gaussian")
+plot(model, xvar = "lambda", label = TRUE)
+```
+
+
+## 4.6 LASSO regression
+```{r 4_6, echo=FALSE}
+x = model.matrix(data$Fat ~ .-Sample -Protein -Moisture, data)
+covariates = scale(data[,2:101])
+response = scale(data$Fat)
+
+# alpha = 1 gives LASSO regression
+model = glmnet(as.matrix(covariates), response, alpha = 1, family = "gaussian")
+plot(model, xvar = "lambda", label = TRUE)
+```
+
+```{r 4_7, echo=FALSE}
+cv_lasso = cv.glmnet(as.matrix(covariates), response, alpha = 1, family = "gaussian", lambda = seq(0, 0.4, 0.01))
+plot(cv_lasso)
 ```
