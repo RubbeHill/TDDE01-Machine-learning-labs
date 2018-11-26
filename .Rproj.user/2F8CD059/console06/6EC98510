@@ -1,4 +1,0 @@
-]0;ruben@Jesse:~/tdde01]7;file://Jesse/home/ruben/tdde01]0;ruben@Jesse: ~/tdde01[01;32mruben@Jesse[00m:[01;34m~/tdde01[00m$ abline(v=theta_hat, col="blue")
-]0;ruben@Jesse:~/tdde01]7;file://Jesse/home/ruben/tdde01]0;ruben@Jesse: ~/tdde01[01;32mruben@Jesse[00m:[01;34m~/tdde01[00m$ abline(v=theta_hat, col="blue")
-bash: syntax error near unexpected token `v=theta_hat,'
-]0;ruben@Jesse:~/tdde01]7;file://Jesse/home/ruben/tdde01]0;ruben@Jesse: ~/tdde01[01;32mruben@Jesse[00m:[01;34m~/tdde01[00m$ 

@@ -1,7 +1,0 @@
-"0","bayesian_log_likelihood = function(theta, x) {"
-"0","  n = length(x)"
-"0","  lambda = 10"
-"0","  n*log(lambda) + n*log(theta) - theta*(sum(x)+lambda*n)"
-"0","}"
-"0","y3 = bayesian_log_likelihood(x, lifetimes)"
-"0","plot(x, y1, type=""l"", col=""blue"", ylim = c(-100, -40))"

@@ -1,6 +1,0 @@
-"0","hist(rdata,"
-"0","     main = ""Histogram of generated lifetime data"","
-"0","     xlab = ""Lifetime"","
-"0","     xlim = c(0, 6),"
-"0","     ylim = c(0, 25),"
-"0","     breaks = 10)"
