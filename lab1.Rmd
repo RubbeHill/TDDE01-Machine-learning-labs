@@ -9,6 +9,7 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(readxl)
+library(glmnet)
 ```
 
 # Assignment 1. Spam classification with nearest neighbors
@@ -161,7 +162,7 @@ theta_hat1 = x[which.max(y1)]
 theta_hat2 = x[which.max(y2)]
 points(x = theta_hat1, y = max(y1), col = "blue", pch = 20)
 points(x = theta_hat2, y = max(y2), col = "red", pch = 20)
-legend("bottomright", legend=c("Likelihood (all data)", "Likelihood (first 6)"),
+legend("bottomright", legend=c("Using all observations", "Using first 6 observations"),
        col=c("blue", "red"), lty=1:1, cex=0.8)
 sprintf("Maximum likelihood value of theta for blue line: %f", theta_hat1)
 sprintf("Maximum likelihood value of theta for red line: %f", theta_hat2)
@@ -175,7 +176,7 @@ We now assumed the Bayesian model $p(x|\theta) = \theta e^{-\theta x}$ with the 
 log_posterior = function(theta, x) {
   n = length(x)
   lambda = 10
-  n*log(lambda) + n*log(theta) - theta*(sum(x)+lambda*n)
+  n*log(theta) - theta*(sum(x)) + log(lambda) -lambda * theta
 }
 ```
 
@@ -196,7 +197,7 @@ theta_hat1 = x[which.max(y1)]
 theta_hat3 = x[which.max(y3)]
 points(x = theta_hat1, y = max(y1), col = "blue", pch = 20)
 points(x = theta_hat3, y = max(y3), col = "red", pch = 20)
-legend("bottomright", legend=c("Likelihood", "Posterior"),
+legend("bottomright", legend=c("Without posterior", "With posterior"),
        col=c("blue", "red"), lty=1:1, cex=0.8)
 sprintf("Maximum likelihood value of theta for blue line: %f", theta_hat1)
 sprintf("Maximum likelihood value of theta for red line: %f", theta_hat3)
@@ -226,9 +227,12 @@ hist(rdata,
 The distribution of the histograms looks very similar to each other, indicating that the estimated theta is close to the real value and therefore a good estimation. 
 
 # Assignment 4. Linear regression and regularization
-```{r 4_1, echo=FALSE}
-library(glmnet)
+In this assignment was about investigating if a near infrared absorbance spectrum could be used to predict the fat content of a sample of meat. A datafile containing data about 215 meat samples was given. For each meat sample the data consisted of a 100 channel spectrum of absorbance records and the levels of moisture, fat and protein. 
 
+## 4.1 Setup
+The data was imported and a plot of Moisture vs Protein was created. 
+
+```{r 4_1, echo=FALSE}
 data = read_excel("tecator.xlsx")
 
 # Divide the data equally into two data sets, one for training and one for testing
@@ -236,52 +240,75 @@ n=dim(data)[1]
 set.seed(12345)
 id=sample(1:n, floor(n*0.5))
 train=data[id,]
-test=data[-id,]
+validation=data[-id,]
 
-plot(data$Moisture, data$Protein)
+plot(data$Moisture, data$Protein, xlab = "Moisture", ylab = "Protein")
 ```
 
-Yes this data looks like they are described good with a linear model.
+From just looking at the plot the data looks like it could be described well with a linear model.
 
-## 4.2
-$\sum_{i=0}^{n} k_{i} * x^{i}$
+## 4.2 Polynomial models
+If we consider model $M_i$ in which Moisture is normally distributed, and the expected Moisture is a polynomial function of Protein including the polynomial terms up to power i, model $M_i$ could be described like:
+
+>Y ~ N($\sum_{i=0}^M k_i * x^i, \sigma^2$)
+
+Where Y = Moisture and X = Protein. 
+The MSE is a good estimation for how far away from the model is from the actual distribution of the data. It is therefor an appropiate measure to use when fitting the model to the training data.
+
+## 4.3 Bias-Variance tradeoff
+The data was divided into a training and a validation set (split 50%/50%) and models $M_1$ to $M_6$ were fitted to the training set. All models were then tested on both the training and testing set and the MSE for each model was recorded. The training and validation MSE for each model can be seen in the plot below:
 
 ```{r 4_3, echo=FALSE, warning=FALSE}
-train_dfr = data.frame(x = train$Moisture, y = train$Protein)
-test_dfr = data.frame(x = test$Moisture, y = test$Protein)
+#train = data.frame(x = train_data$Moisture, y = train_data$Protein)
+#validation = data.frame(x = validation_data$Moisture, y = validation_data$Protein)
 
 # Sort dataframe on x (needed for nice plot)
-train_dfr = train_dfr[with(train_dfr, order(x)),]
-test_dfr = test_dfr[with(test_dfr, order(x)),]
+#train = train[with(train, order(x)),]
+#validation = validation[with(validation, order(x)),]
 
 # MSE vectors
 train_mses = c()
-test_mses = c()
+validation_mses = c()
 
 for(i in 1:6) {
-  fit = lm(formula = train_dfr[,2] ~ poly(train_dfr[,1], i))
-  y_hat_train = predict(fit, train_dfr)
-  y_hat_test = predict(fit, test_dfr)
+  fit = lm(formula = train$Moisture ~ poly(train$Protein, i), data = train)
+  y_hat_train = predict(fit)
+  y_hat_validation = predict(fit, newdata=validation)
   
-  mse_train = sum((train_dfr[,2] - y_hat_train)^2)/length(y_hat_train)
-  train_mses = c(train_mses, mse_train)
-  mse_test = sum((test_dfr[,2] - y_hat_test)^2)/length(y_hat_test)
-  test_mses = c(test_mses, mse_test)
+  train_mse = sum((train$Moisture - y_hat_train)^2)/length(y_hat_train)
+  train_mses = c(train_mses, train_mse)
+  validation_mse = sum((validation$Moisture - y_hat_validation)^2)/length(y_hat_validation)
+  validation_mses = c(validation_mses, validation_mse)
 }
 
-plot(seq(1:6), train_mses, type = 'l', ylim = c(3, 4.2), col="blue")
-lines(seq(1:6), test_mses, col="red")
+plot(seq(1:6), train_mses,
+     ylim = c(30, 35),
+     type = 'l',
+     col="blue",
+     main = "Bias-Variance tradeoff",
+     xlab = "Model",
+     ylab = "MSE")
+lines(seq(1:6), validation_mses, col="red")
+legend("right", legend=c("Training", "Validation"),
+       col=c("blue", "red"), lty=1:1, cex=0.8)
 ```
 
-```{r 4_4, echo=FALSE}
+
+
+## 4.4 stepAIC
+A variable selection on a linear model in which Fat was the response and Channel1-100 were predictors was made using stepAIC. 63 variables were selected:
+```{r 4_4, echo=FALSE, include=FALSE}
 require(MASS)
 
 model = lm(data$Fat ~ .-Sample-Protein-Moisture, data)
-step = stepAIC(model);
+step = stepAIC(model)
+variables_count = length(step$model) - 1
+sprintf("Variables selected: %f", variables_count)
 ```
 
 
 ## 4.5 Ridge regression
+Ridge regression was used on the same model as in 4.4. A plot of the result can be seen below: 
 ```{r 4_5, echo=FALSE}
 #model = lm.ridge(data$Fat ~ .-Sample-Protein-Moisture, data, lambda = seq(0.1, 400, 0.1))
 #matplot(log(model$lambda), t(model$coef) ,type = 'l')
@@ -295,8 +322,10 @@ model = glmnet(as.matrix(covariates), response, alpha = 0, family = "gaussian")
 plot(model, xvar = "lambda", label = TRUE)
 ```
 
+As lambda gets bigger, the coefficients of the model approaches 0. 
 
 ## 4.6 LASSO regression
+To compare with ridge regression, a LASSO regression was also used. The results can be seen in the plot below:
 ```{r 4_6, echo=FALSE}
 x = model.matrix(data$Fat ~ .-Sample -Protein -Moisture, data)
 covariates = scale(data[,2:101])
@@ -307,7 +336,12 @@ model = glmnet(as.matrix(covariates), response, alpha = 1, family = "gaussian")
 plot(model, xvar = "lambda", label = TRUE)
 ```
 
+The biggest difference from the ridge regression graph is that many coefficients goes to 0 really fast, while others slowly approaches 0 as lambda becomes larger. Worth noting is that the coefficents actually becomes 0 here, instead of just approaching 0. 
+
+## 4.7 Cross validation
+Cross validation was used to find the optimal LASSO model. The optimal lambda found was $\lambda = 18$
+
 ```{r 4_7, echo=FALSE}
-cv_lasso = cv.glmnet(as.matrix(covariates), response, alpha = 1, family = "gaussian", lambda = seq(0, 0.4, 0.01))
+cv_lasso = cv.glmnet(as.matrix(covariates), response, alpha = 1, family = "gaussian", lambda = c(0, 10^seq(-6, 0.4, 0.08)))
 plot(cv_lasso)
 ```
