@@ -1,0 +1,347 @@
+---
+title: "TDDE01 Machine Learning"
+subtitle: "Lab1"
+author: "Ruben Hillborg"
+date: "November 15, 2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(glmnet)
+```
+
+# Assignment 1. Spam classification with nearest neighbors
+This assignment was about classifying mails as spam or not spam. A data file containing 2470 e-mails manually classified as spam or not spam was given. The file also contained information about the frequencies of different words in the e-mails. 
+
+## 1.1 Setup
+The data was imported and randomly split into two equally distributed datasets, one for training and one for testing. 
+
+```{r 1_1, echo=FALSE}
+data = read_excel("spambase.xlsx")
+
+# Divide the data equally into two datasets, one for training and one for testing
+n=dim(data)[1]
+set.seed(12345)
+id=sample(1:n, floor(n*0.5))
+train=data[id,]
+test=data[-id,]
+```
+
+## 1.2 Logistic regression classification (50% probability)
+A model was fitted to the test-set using logistic regression (the glm() funciton in R) and the probability for each mail being a spam-mail was calculated using the predict() function. The mails were then classified as spam based on the classification principle:
+
+>$\hat{Y} = 1 \;if \;p(Y = 1|X) > 0.5, \;otherwise \;\hat{Y} = 0$
+
+Which means that a mail with over 50% probability of being a spam mail was classified as spam. The resulting confusion matrices and missclassification rates when the model was used on the training and testing datasets can be seen below:
+
+### Training dataset results (LR, > 0.5)
+```{r 1_2_train, echo=FALSE, warning=FALSE}
+# Get a model using logistic regression on the train dataset
+fit = glm(formula = Spam ~ ., family = binomial(), data = train)
+
+# Test the model on the train dataset
+predicted_spam_train = ifelse(predict(fit, train, type = "response") > 0.5, 1, 0)
+with(train, table(predicted_spam_train, Spam, dnn = c("Prediction", "Truth")))
+sprintf("Missclassification rate: %f", mean(predicted_spam_train != train$Spam))
+```
+
+### Testing dataset results (LR, > 0.5)
+```{r 1_2_test, echo=FALSE}
+# Test the model on the test dataset
+predicted_spam_test = ifelse(predict(fit, test, type = "response") > 0.5, 1, 0)
+with(test, table(predicted_spam_test, Spam, dnn = c("Prediction", "Truth")))
+sprintf("Missclassification rate: %f", mean(predicted_spam_test != test$Spam))
+```
+
+From the results we can see that the model did an ok job at classifying the spam mails. It was no where near as reliable as a real spam filter would have to be though, and I wouldn't want to use it for my e-mails. In both cases there are ~140 e-mails falsly predicted as spam, which means that those (maybe) important e-mails would be sent to the spam folder instead of your inbox. It worked a bit better on the training data than on the testing data, which isn't suprising since the model was fitted to the training data. 
+
+## 1.3 Logistic regression classification (90% probability)
+Here the same logistic regression model was used again, but the classification principle was changed to:
+
+>$\hat{Y} = 1 \;if \;p(Y = 1|X) > 0.9, \;otherwise \;\hat{Y} = 0$
+
+The new confusion matrices and missclassification rates when using this new classification principle can be seen below:
+
+### Training dataset results (LR, > 0.9)
+```{r 1_3_train, echo=FALSE}
+# Test the model on the train dataset
+predicted_spam_train_2 = ifelse(predict(fit, train, type = "response") > 0.9, 1, 0)
+with(train, table(predicted_spam_train_2, Spam, dnn = c("Prediction", "Truth")))
+sprintf("Missclassification rate: %f", mean(predicted_spam_train_2 != train$Spam))
+```
+
+### Testing dataset results (LR, > 0.9)
+```{r 1_3_test, echo=FALSE}
+# Test the model on the train dataset
+predicted_spam_test_2 = ifelse(predict(fit, test, type = "response") > 0.9, 1, 0)
+with(train, table(predicted_spam_test_2, Spam, dnn = c("Prediction", "Truth")))
+sprintf("Missclassification rate: %f", mean(predicted_spam_test_2 != test$Spam))
+```
+
+The results clearly show that this model isn't very reliable. Almost all e-mails were classified as not spam, because the model is bad at predicting spam with a high probability. Only a total of 7 e-mails in each dataset were predicted to be spam with a probability > 90%, and for the test set 6 out of those 7 were false-positives. 
+
+From this we can gather that the logistic regression model works ok when using a classifying principle with lower probability, but isn't really reliable because most probabilities are lower than 0.9 (and most of those over 0.9 were false-positives).
+
+## 1.4 K-nearest-neighbors (k=30)
+To see if a better model for classifying the spam e-mails could be found, the knn algorithm was used with K = 30. An e-mail was classified as spam the same way as in 1.2 (> 0.5). The results can be seen below:
+
+### Training dataset results (knn, k=30)
+```{r 1_4_train, echo=FALSE}
+fit_train_knn = kknn::kknn(formula = Spam ~ ., train = train, test = train, k = 30)
+predicted_spam_train_knn = ifelse(fit_train_knn$fitted.values > 0.5, 1, 0)
+with(train, table(predicted_spam_train_knn, Spam, dnn = c("Predicted", "Truth")))
+sprintf("Missclassification rate: %f", mean(predicted_spam_train_knn != train$Spam))
+```
+
+### Testing dataset results (knn, k=30)
+```{r 1_4_test, echo=FALSE}
+fit_test_knn = kknn::kknn(formula = Spam ~ ., train = train, test = test, k = 30)
+predicted_spam_test_knn = ifelse(fit_test_knn$fitted.values > 0.5, 1, 0)
+with(test, table(predicted_spam_test_knn, Spam, dnn = c("Predicted", "Truth")))
+sprintf("Missclassification rate: %f", mean(predicted_spam_test_knn != test$Spam))
+```
+
+The results from using the knn model on the training set looks similar to the logistic regression used in section 1.2. However, when using the model on the testing dataset the results are a lot worse. The missclassification rate was almost double that of the missclassification rate for the testing dataset in section 1.2.
+
+## 1.5 K-nearest-neighbors (k=1)
+Lastly the knn algorithm was tested with k=1. The results can be seen below:
+
+### Training dataset results (knn, k=1)
+```{r 1_5_train, echo=FALSE}
+fit_train_knn_2 = kknn::kknn(formula = Spam ~ ., train = train, test = train, k = 1)
+predicted_spam_train_knn_2 = ifelse(fit_train_knn_2$fitted.values > 0.5, 1, 0)
+with(train, table(predicted_spam_train_knn_2, Spam, dnn = c("Predicted", "Truth")))
+sprintf("Missclassification rate: %f", mean(predicted_spam_train_knn_2 != train$Spam))
+```
+
+### Testing dataset results (knn, k=1)
+```{r 1_5_test, echo=FALSE}
+fit_test_knn_2 = kknn::kknn(formula = Spam ~ ., train = train, test = test, k = 1)
+predicted_spam_test_knn_2 = ifelse(fit_test_knn_2$fitted.values > 0.5, 1, 0)
+with(test, table(predicted_spam_test_knn_2, Spam, dnn = c("Predicted", "Truth")))
+sprintf("Missclassification rate: %f", mean(predicted_spam_test_knn_2 != test$Spam))
+```
+
+The result was a heavily overfitted model. When the model was used on the training dataset it classified every e-mail correctly, giving a missclassification rate of 0. But when the model was used on the testing dataset it got the worst missclassification rate of all models tested in this assignment. The reason this happens is because the algorithm is only looking at the nearest neighbor to decide if the new e-mail is a spam or not. So when using the model on the training data, the nearest neighbor will of course be the e-mail itself, which the model knows is a spam or not from the training data it was based on. The testing data performs so bad because the model is so overfitted to the training data.
+
+# Assignment 2. Inference about lifetime of machines
+In this assignment a file containing the lifetime of 48 machines was given. The random variable for these lifetimes was called Length.
+
+```{r 2_1, echo=FALSE}
+data = read_excel("machines.xlsx")
+```
+
+## 2.1-2.3 Maximum log-likelihood
+In the assignment we were to assume that the probability model for the data was $p(x|\theta) = \theta e^{-\theta x}$ for **x**=*Length*, and that the observations were independent and identically distributed (iid). Given the assumed model, and that the data is time until an event happens, we know that the data is exponentially distributed. A function that calculates the log-likelihood $log \;p(x|\theta)$ of an exponential distribution, for a given $\theta$ and a given vector **x**, was written. 
+
+```{r log-likelihood}
+log_likelihood = function(theta, x) {
+  n = length(x)
+  n*log(theta) - theta*sum(x)
+}
+```
+
+The dependence of log-likelihood on $\theta$ was then plotted and the maximum likelihood could be extracted from the graph. The same was also done for only the 6 first observations in Length. The results can be seen in the plot below, where the blue line is the likelihoods dependence on $\theta$ when using all observations from the data, and the red line is for the first 6 observations only. The maximum likelihood is marked with a dot. 
+
+```{r 2_2, echo=FALSE}
+x = seq(0.015, 3, 0.01)
+y1 = log_likelihood(x, data$Length)
+y2 = log_likelihood(x, data$Length[1:6])
+
+plot(x, y1,
+     ylim = c(-100, 0),
+     type="l", 
+     col="blue",
+     main = "Maximum log-likelihood",
+     xlab = "theta", 
+     ylab = "log likelihood")
+lines(x, y2, col="red")
+theta_hat1 = x[which.max(y1)]
+theta_hat2 = x[which.max(y2)]
+points(x = theta_hat1, y = max(y1), col = "blue", pch = 20)
+points(x = theta_hat2, y = max(y2), col = "red", pch = 20)
+legend("bottomright", legend=c("Using all observations", "Using first 6 observations"),
+       col=c("blue", "red"), lty=1:1, cex=0.8)
+sprintf("Maximum likelihood value of theta for blue line: %f", theta_hat1)
+sprintf("Maximum likelihood value of theta for red line: %f", theta_hat2)
+```
+
+The estimated theta for all of the data is probably more reliable, since it's based on 48 data values while the other is only based on 6 values. These 6 values could give a missleading lifetime mean to represent the expected lifetime of all machines.
+
+## 2.4 Bayesian maximum log likelihood
+We now assumed the Bayesian model $p(x|\theta) = \theta e^{-\theta x}$ with the prior $p(\theta) = \lambda e^{-\lambda \theta)}, \lambda = 10$. A new function was written that calculates $l(\theta) = log(p(x|\theta)p(\theta))$ for a given $\theta$ and **x**.
+```{r log-posterior}
+log_posterior = function(theta, x) {
+  n = length(x)
+  lambda = 10
+  n*log(theta) - theta*(sum(x)) + log(lambda) -lambda * theta
+}
+```
+
+This function computes the log of the posterior, and the resulting dependence of $l(\theta)$ on $\theta$ when used on all of the data can be seen in the plot below. The line is plotted next to the line for log-likelihood on all data for the last section. 
+
+```{r 2_4, echo=FALSE}
+y3 = log_posterior(x, data$Length)
+
+plot(x, y1,
+     ylim = c(-100, -40),
+     type="l", 
+     col="blue",
+     main = "Maximum log-posterior vs log-likelihood",
+     xlab = "theta", 
+     ylab = "log posterior / likelihood")
+lines(x, y3, col="red")
+theta_hat1 = x[which.max(y1)]
+theta_hat3 = x[which.max(y3)]
+points(x = theta_hat1, y = max(y1), col = "blue", pch = 20)
+points(x = theta_hat3, y = max(y3), col = "red", pch = 20)
+legend("bottomright", legend=c("Without posterior", "With posterior"),
+       col=c("blue", "red"), lty=1:1, cex=0.8)
+sprintf("Maximum likelihood value of theta for blue line: %f", theta_hat1)
+sprintf("Maximum likelihood value of theta for red line: %f", theta_hat3)
+```
+
+From the plot we can see that given the new prior knowledge of the probability for $\theta$, the maximum likelihood of $\theta$ has been shifted to the left. This happens because the prior promotes lower values of $\theta$ to be more likely.
+
+## 2.5 Testing theta
+To see if the estimated theta found in section 2.2 (using all data and no prior), 50 observations were generated from the exponential distribution using the estimated theta ($Exp(\hat{\theta})$). The distribution of the generated data was then compared to the actual data given in the assignment using histograms. The histograms can be observed below:
+```{r 2_5, echo=FALSE}
+set.seed(12345)
+rdata = rexp(50, theta_hat1)
+hist(data$Length,
+     main = "Histogram of given lifetime data",
+     xlab = "Lifetime",
+     xlim = c(0, 6),
+     ylim = c(0, 25),
+     breaks = 10)
+hist(rdata,
+     main = "Histogram of generated lifetime data",
+     xlab = "Lifetime",
+     xlim = c(0, 6),
+     ylim = c(0, 25),
+     breaks = 10)
+```
+
+The distribution of the histograms looks very similar to each other, indicating that the estimated theta is close to the real value and therefore a good estimation. 
+
+# Assignment 4. Linear regression and regularization
+In this assignment was about investigating if a near infrared absorbance spectrum could be used to predict the fat content of a sample of meat. A datafile containing data about 215 meat samples was given. For each meat sample the data consisted of a 100 channel spectrum of absorbance records and the levels of moisture, fat and protein. 
+
+## 4.1 Setup
+The data was imported and a plot of Moisture vs Protein was created. 
+
+```{r 4_1, echo=FALSE}
+data = read_excel("tecator.xlsx")
+
+# Divide the data equally into two data sets, one for training and one for testing
+n=dim(data)[1]
+set.seed(12345)
+id=sample(1:n, floor(n*0.5))
+train=data[id,]
+validation=data[-id,]
+
+plot(data$Moisture, data$Protein, xlab = "Moisture", ylab = "Protein")
+```
+
+From just looking at the plot the data looks like it could be described well with a linear model.
+
+## 4.2 Polynomial models
+If we consider model $M_i$ in which Moisture is normally distributed, and the expected Moisture is a polynomial function of Protein including the polynomial terms up to power i, model $M_i$ could be described like:
+
+>Y ~ N($\sum_{i=0}^M k_i * x^i, \sigma^2$)
+
+Where Y = Moisture and X = Protein. 
+The MSE is a good estimation for how far away from the model is from the actual distribution of the data. It is therefor an appropiate measure to use when fitting the model to the training data.
+
+## 4.3 Bias-Variance tradeoff
+The data was divided into a training and a validation set (split 50%/50%) and models $M_1$ to $M_6$ were fitted to the training set. All models were then tested on both the training and testing set and the MSE for each model was recorded. The training and validation MSE for each model can be seen in the plot below:
+
+```{r 4_3, echo=FALSE, warning=FALSE}
+#train = data.frame(x = train_data$Moisture, y = train_data$Protein)
+#validation = data.frame(x = validation_data$Moisture, y = validation_data$Protein)
+
+# Sort dataframe on x (needed for nice plot)
+#train = train[with(train, order(x)),]
+#validation = validation[with(validation, order(x)),]
+
+# MSE vectors
+train_mses = c()
+validation_mses = c()
+
+for(i in 1:6) {
+  fit = lm(formula = train$Moisture ~ poly(train$Protein, i), data = train)
+  y_hat_train = predict(fit)
+  y_hat_validation = predict(fit, newdata=validation)
+  
+  train_mse = sum((train$Moisture - y_hat_train)^2)/length(y_hat_train)
+  train_mses = c(train_mses, train_mse)
+  validation_mse = sum((validation$Moisture - y_hat_validation)^2)/length(y_hat_validation)
+  validation_mses = c(validation_mses, validation_mse)
+}
+
+plot(seq(1:6), train_mses,
+     ylim = c(30, 35),
+     type = 'l',
+     col="blue",
+     main = "Bias-Variance tradeoff",
+     xlab = "Model",
+     ylab = "MSE")
+lines(seq(1:6), validation_mses, col="red")
+legend("right", legend=c("Training", "Validation"),
+       col=c("blue", "red"), lty=1:1, cex=0.8)
+```
+
+
+
+## 4.4 stepAIC
+A variable selection on a linear model in which Fat was the response and Channel1-100 were predictors was made using stepAIC. 63 variables were selected:
+```{r 4_4, echo=FALSE, include=FALSE}
+require(MASS)
+
+model = lm(data$Fat ~ .-Sample-Protein-Moisture, data)
+step = stepAIC(model)
+variables_count = length(step$model) - 1
+sprintf("Variables selected: %f", variables_count)
+```
+
+
+## 4.5 Ridge regression
+Ridge regression was used on the same model as in 4.4. A plot of the result can be seen below: 
+```{r 4_5, echo=FALSE}
+#model = lm.ridge(data$Fat ~ .-Sample-Protein-Moisture, data, lambda = seq(0.1, 400, 0.1))
+#matplot(log(model$lambda), t(model$coef) ,type = 'l')
+
+x = model.matrix(data$Fat ~ .-Sample -Protein -Moisture, data)
+covariates = scale(data[,2:101])
+response = scale(data$Fat)
+
+# alpha = 0 gives ridge regression
+model = glmnet(as.matrix(covariates), response, alpha = 0, family = "gaussian")
+plot(model, xvar = "lambda", label = TRUE)
+```
+
+As lambda gets bigger, the coefficients of the model approaches 0. 
+
+## 4.6 LASSO regression
+To compare with ridge regression, a LASSO regression was also used. The results can be seen in the plot below:
+```{r 4_6, echo=FALSE}
+x = model.matrix(data$Fat ~ .-Sample -Protein -Moisture, data)
+covariates = scale(data[,2:101])
+response = scale(data$Fat)
+
+# alpha = 1 gives LASSO regression
+model = glmnet(as.matrix(covariates), response, alpha = 1, family = "gaussian")
+plot(model, xvar = "lambda", label = TRUE)
+```
+
+The biggest difference from the ridge regression graph is that many coefficients goes to 0 really fast, while others slowly approaches 0 as lambda becomes larger. Worth noting is that the coefficents actually becomes 0 here, instead of just approaching 0. 
+
+## 4.7 Cross validation
+Cross validation was used to find the optimal LASSO model. The optimal lambda found was $\lambda = 18$
+
+```{r 4_7, echo=FALSE}
+cv_lasso = cv.glmnet(as.matrix(covariates), response, alpha = 1, family = "gaussian", lambda = c(0, 10^seq(-6, 0.4, 0.08)))
+plot(cv_lasso)
+```
